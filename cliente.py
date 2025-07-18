@@ -1,5 +1,5 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow, QStackedWidget, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QApplication, QMainWindow, QStackedWidget, QMessageBox
 from ui.screen_system_status import SystemStatusScreen
 from ui.screen_microscopes import MicroscopesScreen
 from ui.screen_calibration import CalibrationScreen
@@ -11,36 +11,60 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Control de Microscopios y Sensores")
         self.setGeometry(100, 100, 1024, 768)
         
-        # Cliente API para comunicación con Raspberry Pi
-        self.api_client = APIClient("http://192.168.123.233:5000")
+        # Configurar cliente API
+        self.api_client = APIClient("http://192.168.123.233:5000")  # Cambiar por IP de tu Raspberry
         
-        # Configuración de pantallas
+        # Verificar conexión al iniciar
+        if not self.check_connection():
+            QMessageBox.critical(self, "Error", "No se pudo conectar al servidor")
+            sys.exit(1)
+        
+        # Configurar pantallas
         self.stacked_widget = QStackedWidget()
         self.setCentralWidget(self.stacked_widget)
         
-        # Crear pantallas
         self.system_status_screen = SystemStatusScreen(self)
         self.microscopes_screen = MicroscopesScreen(self)
         self.calibration_screen = CalibrationScreen(self)
         
-        # Agregar pantallas al stacked widget
         self.stacked_widget.addWidget(self.system_status_screen)
         self.stacked_widget.addWidget(self.microscopes_screen)
         self.stacked_widget.addWidget(self.calibration_screen)
         
-        # Conectar señales de navegación
+        # Conectar señales
         self.system_status_screen.next_screen_signal.connect(self.show_microscopes)
         self.microscopes_screen.calibration_signal.connect(self.show_calibration)
         self.calibration_screen.back_signal.connect(self.show_microscopes)
         
-        # Mostrar pantalla inicial
+        # Cargar datos iniciales
+        self.load_initial_data()
         self.stacked_widget.setCurrentIndex(0)
     
+    def check_connection(self):
+        """Verifica la conexión con el servidor"""
+        try:
+            status = self.api_client.get_system_status()
+            return status is not None
+        except Exception:
+            return False
+    
+    def load_initial_data(self):
+        """Carga los microscopios disponibles al iniciar"""
+        # Actualizar estado del sistema
+        self.system_status_screen.update_status()
+        
+        # Cargar microscopios
+        microscopes = self.api_client.get_microscopes()
+        if microscopes:
+            self.microscopes_screen.load_data(microscopes)
+    
     def show_microscopes(self):
-        self.microscopes_screen.load_data()
+        """Muestra la pantalla de microscopios y actualiza datos"""
+        self.microscopes_screen.refresh_data()
         self.stacked_widget.setCurrentIndex(1)
     
     def show_calibration(self, microscope_id):
+        """Muestra la pantalla de calibración para un microscopio específico"""
         self.calibration_screen.set_microscope(microscope_id)
         self.stacked_widget.setCurrentIndex(2)
 

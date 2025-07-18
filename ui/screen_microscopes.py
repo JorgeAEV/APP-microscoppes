@@ -25,9 +25,12 @@ class MicroscopesScreen(QWidget):
         self.microscope_count_label = QLabel("Microscopios conectados: 0")
         self.add_button = QPushButton("Agregar Microscopio")
         self.add_button.clicked.connect(self.add_microscope)
+        self.refresh_button = QPushButton("Actualizar")
+        self.refresh_button.clicked.connect(self.refresh_data)
         
         top_layout.addWidget(self.microscope_count_label)
         top_layout.addStretch()
+        top_layout.addWidget(self.refresh_button)
         top_layout.addWidget(self.add_button)
         self.layout.addLayout(top_layout)
         
@@ -43,19 +46,32 @@ class MicroscopesScreen(QWidget):
         
         self.setLayout(self.layout)
     
-    def load_data(self):
-        # Cargar microscopios disponibles
-        microscopes = self.parent.api_client.get_microscopes()
+    def load_data(self, microscopes):
+        """Carga los microscopios disponibles"""
         for microscope_id in microscopes:
             self.add_microscope_tab(microscope_id)
     
+    def refresh_data(self):
+        """Actualiza la lista de microscopios"""
+        microscopes = self.parent.api_client.get_microscopes()
+        current_ids = [self.tab_widget.tabText(i) for i in range(self.tab_widget.count())]
+        
+        # Añadir nuevos microscopios
+        for microscope_id in microscopes:
+            if microscope_id not in current_ids:
+                self.add_microscope_tab(microscope_id)
+        
+        # Actualizar contador
+        self.update_microscope_count()
+    
     def add_microscope(self):
-        # Simular detección de nuevo microscopio
-        microscope_id = f"microscope_{len(self.microscopes)+1}"
-        self.parent.api_client.add_microscope(microscope_id)
-        self.add_microscope_tab(microscope_id)
+        """Intenta agregar un nuevo microscopio"""
+        microscopes = self.parent.api_client.get_microscopes()
+        new_id = f"microscope_{len(microscopes)+1}"
+        self.add_microscope_tab(new_id)
     
     def add_microscope_tab(self, microscope_id):
+        """Añade una pestaña para un microscopio específico"""
         if microscope_id in self.microscopes:
             return
             
@@ -70,13 +86,13 @@ class MicroscopesScreen(QWidget):
         # Controles del microscopio
         controls_layout = QHBoxLayout()
         
-        led_button = QPushButton("LED: OFF")
-        temp_label = QLabel("Temperatura: --°C")
+        self.led_button = QPushButton("LED: OFF")
+        self.temp_label = QLabel("Temperatura: --°C")
         cal_button = QPushButton("Calibración")
         cal_button.clicked.connect(lambda: self.calibration_signal.emit(microscope_id))
         
-        controls_layout.addWidget(led_button)
-        controls_layout.addWidget(temp_label)
+        controls_layout.addWidget(self.led_button)
+        controls_layout.addWidget(self.temp_label)
         controls_layout.addStretch()
         controls_layout.addWidget(cal_button)
         layout.addLayout(controls_layout)
@@ -86,24 +102,25 @@ class MicroscopesScreen(QWidget):
         
         # Crear y guardar hilo para este microscopio
         thread = MicroscopeThread(microscope_id, self.parent.api_client)
-        thread.video_frame.connect(lambda img: video_label.setPixmap(img))
-        thread.status_update.connect(lambda s: (
-            led_button.setText(f"LED: {'ON' if s['led_on'] else 'OFF'}"),
-            temp_label.setText(f"Temperatura: {s['temperature']}°C")
-        ))
+        thread.status_updated.connect(lambda s: self.update_microscope_status(microscope_id, s))
         thread.start()
         
         self.microscopes[microscope_id] = {
             'tab': tab,
             'thread': thread,
-            'controls': {
-                'led_button': led_button,
-                'temp_label': temp_label
-            }
+            'video_label': video_label
         }
         
         self.update_microscope_count()
     
+    def update_microscope_status(self, microscope_id, status):
+        """Actualiza la UI con el estado del microscopio"""
+        if microscope_id in self.microscopes:
+            controls = self.microscopes[microscope_id]
+            controls['led_button'].setText(f"LED: {'ON' if status['led_on'] else 'OFF'}")
+            controls['temp_label'].setText(f"Temperatura: {status['temperature']}°C")
+    
     def update_microscope_count(self):
-        count = len(self.microscopes)
+        """Actualiza el contador de microscopios"""
+        count = self.tab_widget.count()
         self.microscope_count_label.setText(f"Microscopios conectados: {count}")

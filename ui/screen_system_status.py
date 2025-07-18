@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QPushButton, 
-                            QProgressBar, QFileDialog)
+                            QProgressBar, QHBoxLayout, QGroupBox)
 from PyQt6.QtCore import pyqtSignal, QTimer
 
 class SystemStatusScreen(QWidget):
@@ -10,7 +10,7 @@ class SystemStatusScreen(QWidget):
         self.parent = parent
         self.init_ui()
         self.update_timer = QTimer()
-        self.update_timer.timeout.connect(self.update_system_status)
+        self.update_timer.timeout.connect(self.update_status)
         self.update_timer.start(2000)  # Actualizar cada 2 segundos
     
     def init_ui(self):
@@ -21,56 +21,66 @@ class SystemStatusScreen(QWidget):
         self.title_label.setStyleSheet("font-size: 20px; font-weight: bold;")
         layout.addWidget(self.title_label)
         
+        # Panel de estado del sistema
+        system_group = QGroupBox("Estado del Servidor")
+        system_layout = QVBoxLayout()
+        
         # Recursos del sistema
-        self.cpu_label = QLabel("CPU: --%")
-        self.ram_label = QLabel("RAM: --%")
-        self.storage_label = QLabel("Almacenamiento: --%")
+        self.cpu_label = QLabel("Uso de CPU: --%")
+        self.memory_label = QLabel("Uso de Memoria: --%")
+        self.storage_label = QLabel("Uso de Almacenamiento: --%")
         self.temp_label = QLabel("Temperatura CPU: --°C")
         
         # Barras de progreso
         self.cpu_bar = QProgressBar()
-        self.ram_bar = QProgressBar()
+        self.memory_bar = QProgressBar()
         self.storage_bar = QProgressBar()
         
-        layout.addWidget(self.cpu_label)
-        layout.addWidget(self.cpu_bar)
-        layout.addWidget(self.ram_label)
-        layout.addWidget(self.ram_bar)
-        layout.addWidget(self.storage_label)
-        layout.addWidget(self.storage_bar)
-        layout.addWidget(self.temp_label)
+        system_layout.addWidget(self.cpu_label)
+        system_layout.addWidget(self.cpu_bar)
+        system_layout.addWidget(self.memory_label)
+        system_layout.addWidget(self.memory_bar)
+        system_layout.addWidget(self.storage_label)
+        system_layout.addWidget(self.storage_bar)
+        system_layout.addWidget(self.temp_label)
         
-        # Selección de carpeta
-        self.folder_button = QPushButton("Seleccionar Carpeta para Imágenes")
-        self.folder_button.clicked.connect(self.select_folder)
-        self.folder_label = QLabel("Carpeta seleccionada: Ninguna")
-        layout.addWidget(self.folder_button)
-        layout.addWidget(self.folder_label)
+        system_group.setLayout(system_layout)
+        layout.addWidget(system_group)
+        
+        # Panel de microscopios
+        microscope_group = QGroupBox("Microscopios Disponibles")
+        microscope_layout = QVBoxLayout()
+        
+        self.microscope_count_label = QLabel("Microscopios conectados: --")
+        self.microscope_list_label = QLabel()
+        self.microscope_list_label.setWordWrap(True)
+        
+        microscope_layout.addWidget(self.microscope_count_label)
+        microscope_layout.addWidget(self.microscope_list_label)
+        microscope_group.setLayout(microscope_layout)
+        layout.addWidget(microscope_group)
         
         # Botón siguiente
-        self.next_button = QPushButton("Siguiente")
+        self.next_button = QPushButton("Continuar a Microscopios")
         self.next_button.clicked.connect(self.next_screen_signal.emit)
         layout.addWidget(self.next_button)
         
         self.setLayout(layout)
     
-    def select_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, "Seleccionar Carpeta")
-        if folder:
-            self.folder_label.setText(f"Carpeta seleccionada: {folder}")
-            # Guardar en configuración
-            self.parent.api_client.save_setting("image_folder", folder)
-    
-    def update_system_status(self):
-        # Obtener datos de la Raspberry Pi
+    def update_status(self):
         status = self.parent.api_client.get_system_status()
-        
         if status:
-            self.cpu_label.setText(f"CPU: {status['cpu']}%")
-            self.ram_label.setText(f"RAM: {status['ram']}%")
-            self.storage_label.setText(f"Almacenamiento: {status['storage']}%")
-            self.temp_label.setText(f"Temperatura CPU: {status['temp']}°C")
+            self.cpu_label.setText(f"Uso de CPU: {status.get('cpu_usage', 0)}%")
+            self.memory_label.setText(f"Uso de Memoria: {status.get('memory_usage', 0)}%")
+            self.storage_label.setText(f"Uso de Almacenamiento: {status.get('storage_usage', 0)}%")
+            self.temp_label.setText(f"Temperatura CPU: {status.get('cpu_temp', 0)}°C")
             
-            self.cpu_bar.setValue(status['cpu'])
-            self.ram_bar.setValue(status['ram'])
-            self.storage_bar.setValue(status['storage'])
+            self.cpu_bar.setValue(status.get('cpu_usage', 0))
+            self.memory_bar.setValue(status.get('memory_usage', 0))
+            self.storage_bar.setValue(status.get('storage_usage', 0))
+            
+            # Actualizar información de microscopios
+            microscopes = self.parent.api_client.get_microscopes()
+            count = len(microscopes)
+            self.microscope_count_label.setText(f"Microscopios conectados: {count}")
+            self.microscope_list_label.setText(", ".join(microscopes) if microscopes else "No se detectaron microscopios")

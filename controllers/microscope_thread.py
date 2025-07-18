@@ -1,30 +1,34 @@
-from PyQt6.QtCore import QThread, pyqtSignal, QObject
+from PyQt6.QtCore import QThread, pyqtSignal
 import time
-import random
+from datetime import datetime
 
 class MicroscopeThread(QThread):
-    video_frame = pyqtSignal(object)  # QPixmap
-    status_update = pyqtSignal(dict)  # {'led_on': bool, 'temperature': float}
+    status_updated = pyqtSignal(dict)
+    image_captured = pyqtSignal(str)  # Path de la imagen
     
-    def __init__(self, microscope_id: str, api_client):
+    def __init__(self, microscope_id, api_client):
         super().__init__()
         self.microscope_id = microscope_id
         self.api_client = api_client
         self.running = True
+        self.update_interval = 2  # segundos
     
     def run(self):
         while self.running:
-            # Simular actualización de estado (en implementación real, esto vendría de la API)
+            # Obtener estado del microscopio
             status = {
-                'led_on': random.random() > 0.5,
-                'temperature': round(25 + random.random() * 10, 1)
+                'led_on': False,
+                'temperature': 25.0,
+                'last_update': datetime.now().strftime("%H:%M:%S")
             }
-            self.status_update.emit(status)
+            self.status_updated.emit(status)
             
-            # Simular frame de video (en implementación real, esto procesaría el stream real)
-            # self.video_frame.emit(frame_real)
-            
-            time.sleep(1)  # Actualizar cada segundo
+            time.sleep(self.update_interval)
+    
+    def capture_image(self):
+        image_path = self.api_client.capture_image(self.microscope_id)
+        if image_path:
+            self.image_captured.emit(image_path)
     
     def stop(self):
         self.running = False
