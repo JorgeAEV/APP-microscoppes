@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                            QPushButton, QSlider, QComboBox, QGroupBox)
+                            QPushButton, QSlider, QGroupBox)
 from PyQt6.QtCore import pyqtSignal, Qt
-from PyQt6.QtGui import QPixmap, QImage, QPainter, QColor
+from PyQt6.QtGui import QPixmap
 import numpy as np
 import matplotlib.pyplot as plt
 from io import BytesIO
@@ -38,8 +38,8 @@ class CalibrationScreen(QWidget):
         self.video_label.setStyleSheet("background-color: black; min-height: 300px;")
         left_column.addWidget(self.video_label)
         
-        # Controles LED RGB
-        led_group = QGroupBox("Control LED RGB")
+        # Controles LED (simplificado para LED normal)
+        led_group = QGroupBox("Control LED")
         led_layout = QVBoxLayout()
         
         # Encendido/apagado
@@ -47,7 +47,7 @@ class CalibrationScreen(QWidget):
         self.led_toggle.clicked.connect(self.toggle_led)
         led_layout.addWidget(self.led_toggle)
         
-        # Intensidad
+        # Intensidad (único control necesario)
         intensity_layout = QHBoxLayout()
         intensity_layout.addWidget(QLabel("Intensidad:"))
         self.intensity_slider = QSlider(Qt.Orientation.Horizontal)
@@ -55,15 +55,6 @@ class CalibrationScreen(QWidget):
         self.intensity_slider.valueChanged.connect(self.update_led_intensity)
         intensity_layout.addWidget(self.intensity_slider)
         led_layout.addLayout(intensity_layout)
-        
-        # Color
-        color_layout = QHBoxLayout()
-        color_layout.addWidget(QLabel("Color:"))
-        self.color_combo = QComboBox()
-        self.color_combo.addItems(["Rojo", "Verde", "Azul", "Blanco", "Personalizado"])
-        self.color_combo.currentTextChanged.connect(self.update_led_color)
-        color_layout.addWidget(self.color_combo)
-        led_layout.addLayout(color_layout)
         
         led_group.setLayout(led_layout)
         left_column.addWidget(led_group)
@@ -73,8 +64,8 @@ class CalibrationScreen(QWidget):
         # Columna derecha - Histograma e información
         right_column = QVBoxLayout()
         
-        # Botón de histograma
-        self.histogram_button = QPushButton("Generar Histograma RGB")
+        # Botón de histograma (ahora solo escala de grises)
+        self.histogram_button = QPushButton("Generar Histograma")
         self.histogram_button.clicked.connect(self.generate_histogram)
         right_column.addWidget(self.histogram_button)
         
@@ -112,15 +103,14 @@ class CalibrationScreen(QWidget):
         self.current_microscope = microscope_id
         self.microscope_id_label.setText(f"Microscopio: {microscope_id}")
         
-        # Cargar configuración actual
+        # Cargar configuración actual (sin led_color)
         config = self.parent.api_client.get_microscope_config(microscope_id)
         if config:
-            self.intensity_slider.setValue(config['led_intensity'])
-            self.led_toggle.setText("Apagar LED" if config['led_on'] else "Encender LED")
-            self.color_combo.setCurrentText(config['led_color'])
+            self.intensity_slider.setValue(config.get('led_intensity', 50))
+            self.led_toggle.setText("Apagar LED" if config.get('led_on', False) else "Encender LED")
             
-            self.resolution_label.setText(f"Resolución: {config['resolution']}")
-            self.temperature_label.setText(f"Temperatura: {config['temperature']}°C")
+            self.resolution_label.setText(f"Resolución: {config.get('resolution', '--')}")
+            self.temperature_label.setText(f"Temperatura: {config.get('temperature', '--')}°C")
     
     def toggle_led(self):
         if not self.current_microscope:
@@ -146,15 +136,6 @@ class CalibrationScreen(QWidget):
             value
         )
     
-    def update_led_color(self, color):
-        if not self.current_microscope:
-            return
-            
-        self.parent.api_client.set_led_color(
-            self.current_microscope,
-            color
-        )
-    
     def generate_histogram(self):
         if not self.current_microscope:
             return
@@ -165,17 +146,14 @@ class CalibrationScreen(QWidget):
             return
             
         # Convertir a numpy array (simulado)
-        # En una implementación real, esto procesaría la imagen real
-        img_array = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
+        # En implementación real usaría la imagen real convertida a escala de grises
+        img_array = np.random.randint(0, 256, (100, 100), dtype=np.uint8)
         
-        # Generar histograma
+        # Generar histograma simplificado (escala de grises)
         plt.figure(figsize=(6, 4))
-        colors = ('r', 'g', 'b')
-        for i, color in enumerate(colors):
-            hist = np.histogram(img_array[:, :, i], bins=256, range=(0, 256))
-            plt.plot(hist[0], color=color)
+        plt.hist(img_array.ravel(), bins=256, range=(0, 256), color='gray')
         
-        plt.title('Histograma RGB')
+        plt.title('Histograma de Intensidad')
         plt.xlabel('Nivel de intensidad')
         plt.ylabel('Frecuencia')
         plt.grid(True)

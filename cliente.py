@@ -66,8 +66,21 @@ class MainWindow(QMainWindow):
     
     def show_calibration(self, microscope_id):
         """Muestra la pantalla de calibración para un microscopio específico"""
-        self.calibration_screen.set_microscope(microscope_id)
-        self.stacked_widget.setCurrentIndex(2)
+        try:
+            # Obtener configuración actualizada del microscopio
+            config = self.api_client.get_microscope_config(microscope_id)
+            if config:
+                # Verificar que exista la clave 'led_intensity'
+                if 'led_intensity' not in config:
+                    config['led_intensity'] = 50  # Valor por defecto
+                
+                # Pasar solo los parámetros necesarios
+                self.calibration_screen.set_microscope(microscope_id)
+                self.stacked_widget.setCurrentIndex(2)
+            else:
+                QMessageBox.warning(self, "Error", "No se pudo cargar la configuración del microscopio")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error al mostrar calibración: {str(e)}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
