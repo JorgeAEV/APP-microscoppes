@@ -95,3 +95,20 @@ class APIClient(QObject):
             return response.status_code == 200
         except requests.exceptions.RequestException:
             return False
+        
+    def get_data(self):
+        """Obtiene los datos del sensor DHT11"""
+        try:
+            response = requests.get(f"{self.base_url}/get_data")
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('success'):
+                    return {
+                        'temperature': data.get('temperature'),
+                        'humidity': data.get('humidity'),
+                        'timestamp': data.get('timestamp')
+                    }
+            return None
+        except Exception as e:
+            print(f"Error al obtener datos del sensor: {e}")
+            return None
