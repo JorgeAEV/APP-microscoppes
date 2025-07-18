@@ -4,26 +4,22 @@ from datetime import datetime
 
 class MicroscopeThread(QThread):
     status_updated = pyqtSignal(dict)
-    image_captured = pyqtSignal(str)  # Path de la imagen
     
     def __init__(self, microscope_id, api_client):
         super().__init__()
         self.microscope_id = microscope_id
         self.api_client = api_client
-        self.running = True
-        self.update_interval = 2  # segundos
     
     def run(self):
-        while self.running:
-            # Obtener estado del microscopio
-            status = {
-                'led_on': False,
-                'temperature': 25.0,
-                'last_update': datetime.now().strftime("%H:%M:%S")
-            }
-            self.status_updated.emit(status)
-            
-            time.sleep(self.update_interval)
+        while True:
+            # Obtener estado actual del microscopio
+            config = self.api_client.get_microscope_config(self.microscope_id)
+            if config:
+                self.status_updated.emit({
+                    'led_on': config.get('led_on', False),
+                    'temperature': config.get('temperature', 0.0)
+                })
+            self.msleep(2000)  # Actualizar cada 2 segundos
     
     def capture_image(self):
         image_path = self.api_client.capture_image(self.microscope_id)

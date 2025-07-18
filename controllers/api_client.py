@@ -16,7 +16,14 @@ class APIClient(QObject):
         try:
             response = self.session.get(f"{self.base_url}/get_config", timeout=self.timeout)
             if response.status_code == 200:
-                return response.json()
+                data = response.json()
+                return {
+                    'cpu_usage': data.get('cpu_usage', 0.0),  # Puede ser float
+                    'memory_usage': data.get('memory_usage', 0.0),
+                    'storage_usage': data.get('storage_usage', 0.0),
+                    'cpu_temp': data.get('cpu_temp', 0.0),
+                    'microscopes_count': len(data.get('microscopes', []))
+                }
         except requests.exceptions.RequestException:
             return None
     
@@ -38,8 +45,11 @@ class APIClient(QObject):
                 timeout=self.timeout
             )
             if response.status_code == 200:
-                return response.json()
-            return None
+                return response.json().get('config', {})
+            return {
+                'led_on': False,
+                'temperature': 0.0
+            }
         except requests.exceptions.RequestException:
             return None
     

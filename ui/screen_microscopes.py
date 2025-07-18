@@ -9,7 +9,7 @@ class MicroscopesScreen(QWidget):
     def __init__(self, parent):
         super().__init__(parent)
         self.parent = parent
-        self.microscopes = {}
+        self.microscopes = {}  # Diccionario para almacenar los controles de cada microscopio
         self.init_ui()
     
     def init_ui(self):
@@ -86,13 +86,14 @@ class MicroscopesScreen(QWidget):
         # Controles del microscopio
         controls_layout = QHBoxLayout()
         
-        self.led_button = QPushButton("LED: OFF")
-        self.temp_label = QLabel("Temperatura: --°C")
+        # Crear los controles
+        led_button = QPushButton("LED: OFF")
+        temp_label = QLabel("Temperatura: --°C")
         cal_button = QPushButton("Calibración")
         cal_button.clicked.connect(lambda: self.calibration_signal.emit(microscope_id))
         
-        controls_layout.addWidget(self.led_button)
-        controls_layout.addWidget(self.temp_label)
+        controls_layout.addWidget(led_button)
+        controls_layout.addWidget(temp_label)
         controls_layout.addStretch()
         controls_layout.addWidget(cal_button)
         layout.addLayout(controls_layout)
@@ -100,16 +101,21 @@ class MicroscopesScreen(QWidget):
         tab.setLayout(layout)
         self.tab_widget.addTab(tab, microscope_id)
         
+        # Almacenar referencias a los controles
+        self.microscopes[microscope_id] = {
+            'tab': tab,
+            'led_button': led_button,  # Asegurarse de guardar la referencia al botón
+            'temp_label': temp_label,
+            'video_label': video_label
+        }
+        
         # Crear y guardar hilo para este microscopio
         thread = MicroscopeThread(microscope_id, self.parent.api_client)
         thread.status_updated.connect(lambda s: self.update_microscope_status(microscope_id, s))
         thread.start()
         
-        self.microscopes[microscope_id] = {
-            'tab': tab,
-            'thread': thread,
-            'video_label': video_label
-        }
+        # Guardar el hilo en el diccionario
+        self.microscopes[microscope_id]['thread'] = thread
         
         self.update_microscope_count()
     
@@ -117,8 +123,11 @@ class MicroscopesScreen(QWidget):
         """Actualiza la UI con el estado del microscopio"""
         if microscope_id in self.microscopes:
             controls = self.microscopes[microscope_id]
-            controls['led_button'].setText(f"LED: {'ON' if status['led_on'] else 'OFF'}")
-            controls['temp_label'].setText(f"Temperatura: {status['temperature']}°C")
+            # Verificar que los controles existan antes de acceder a ellos
+            if 'led_button' in controls and controls['led_button'] is not None:
+                controls['led_button'].setText(f"LED: {'ON' if status.get('led_on', False) else 'OFF'}")
+            if 'temp_label' in controls and controls['temp_label'] is not None:
+                controls['temp_label'].setText(f"Temperatura: {status.get('temperature', '--')}°C")
     
     def update_microscope_count(self):
         """Actualiza el contador de microscopios"""

@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QPushButton, 
-                            QProgressBar, QHBoxLayout, QGroupBox)
+                            QProgressBar, QFileDialog, QHBoxLayout, QGroupBox)
 from PyQt6.QtCore import pyqtSignal, QTimer
 
 class SystemStatusScreen(QWidget):
@@ -70,14 +70,19 @@ class SystemStatusScreen(QWidget):
     def update_status(self):
         status = self.parent.api_client.get_system_status()
         if status:
-            self.cpu_label.setText(f"Uso de CPU: {status.get('cpu_usage', 0)}%")
-            self.memory_label.setText(f"Uso de Memoria: {status.get('memory_usage', 0)}%")
-            self.storage_label.setText(f"Uso de Almacenamiento: {status.get('storage_usage', 0)}%")
+            # Convertir valores float a int para las barras de progreso
+            cpu_usage = int(status.get('cpu_usage', 0))
+            memory_usage = int(status.get('memory_usage', 0))
+            storage_usage = int(status.get('storage_usage', 0))
+            
+            self.cpu_label.setText(f"Uso de CPU: {cpu_usage}%")
+            self.memory_label.setText(f"Uso de Memoria: {memory_usage}%")
+            self.storage_label.setText(f"Uso de Almacenamiento: {storage_usage}%")
             self.temp_label.setText(f"Temperatura CPU: {status.get('cpu_temp', 0)}°C")
             
-            self.cpu_bar.setValue(status.get('cpu_usage', 0))
-            self.memory_bar.setValue(status.get('memory_usage', 0))
-            self.storage_bar.setValue(status.get('storage_usage', 0))
+            self.cpu_bar.setValue(cpu_usage)
+            self.memory_bar.setValue(memory_usage)
+            self.storage_bar.setValue(storage_usage)
             
             # Actualizar información de microscopios
             microscopes = self.parent.api_client.get_microscopes()

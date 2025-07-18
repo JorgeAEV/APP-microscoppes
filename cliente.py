@@ -49,14 +49,15 @@ class MainWindow(QMainWindow):
             return False
     
     def load_initial_data(self):
-        """Carga los microscopios disponibles al iniciar"""
+        """Carga los datos iniciales del sistema"""
         # Actualizar estado del sistema
         self.system_status_screen.update_status()
         
-        # Cargar microscopios
-        microscopes = self.api_client.get_microscopes()
-        if microscopes:
-            self.microscopes_screen.load_data(microscopes)
+        # Cargar microscopios (si hay pantalla de microscopios)
+        if hasattr(self, 'microscopes_screen'):
+            microscopes = self.api_client.get_microscopes()
+            if microscopes:
+                self.microscopes_screen.load_data(microscopes)
     
     def show_microscopes(self):
         """Muestra la pantalla de microscopios y actualiza datos"""
