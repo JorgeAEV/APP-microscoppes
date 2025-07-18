@@ -1,10 +1,27 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                            QPushButton, QSlider, QGroupBox)
+                            QPushButton, QSlider, QGroupBox, QDialog)
 from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QPixmap
 import numpy as np
 import matplotlib.pyplot as plt
 from io import BytesIO
+
+class HistogramWindow(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Histograma de Intensidad")
+        self.setGeometry(100, 100, 600, 400)
+        self.layout = QVBoxLayout()
+        
+        self.histogram_label = QLabel()
+        self.histogram_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.layout.addWidget(self.histogram_label)
+        
+        self.close_button = QPushButton("Cerrar")
+        self.close_button.clicked.connect(self.close)
+        self.layout.addWidget(self.close_button)
+        
+        self.setLayout(self.layout)
 
 class CalibrationScreen(QWidget):
     back_signal = pyqtSignal()
@@ -27,27 +44,23 @@ class CalibrationScreen(QWidget):
         self.microscope_id_label = QLabel("Microscopio: --")
         self.layout.addWidget(self.microscope_id_label)
         
-        # Controles principales
-        main_layout = QHBoxLayout()
-        
-        # Columna izquierda - Video y controles
-        left_column = QVBoxLayout()
-        
-        # Video del microscopio
+        # Video del microscopio (ahora ocupa toda la parte superior)
         self.video_label = QLabel("Vista previa")
-        self.video_label.setStyleSheet("background-color: black; min-height: 300px;")
-        left_column.addWidget(self.video_label)
+        self.video_label.setStyleSheet("background-color: black; min-height: 400px;")
+        self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.layout.addWidget(self.video_label)
         
-        # Controles LED (simplificado para LED normal)
+        # Controles e información en la parte inferior
+        bottom_layout = QHBoxLayout()
+        
+        # Controles LED
         led_group = QGroupBox("Control LED")
         led_layout = QVBoxLayout()
         
-        # Encendido/apagado
         self.led_toggle = QPushButton("Apagar LED")
         self.led_toggle.clicked.connect(self.toggle_led)
         led_layout.addWidget(self.led_toggle)
         
-        # Intensidad (único control necesario)
         intensity_layout = QHBoxLayout()
         intensity_layout.addWidget(QLabel("Intensidad:"))
         self.intensity_slider = QSlider(Qt.Orientation.Horizontal)
@@ -57,22 +70,7 @@ class CalibrationScreen(QWidget):
         led_layout.addLayout(intensity_layout)
         
         led_group.setLayout(led_layout)
-        left_column.addWidget(led_group)
-        
-        main_layout.addLayout(left_column)
-        
-        # Columna derecha - Histograma e información
-        right_column = QVBoxLayout()
-        
-        # Botón de histograma (ahora solo escala de grises)
-        self.histogram_button = QPushButton("Generar Histograma")
-        self.histogram_button.clicked.connect(self.generate_histogram)
-        right_column.addWidget(self.histogram_button)
-        
-        # Área del histograma
-        self.histogram_label = QLabel()
-        self.histogram_label.setStyleSheet("background-color: white; min-height: 200px;")
-        right_column.addWidget(self.histogram_label)
+        bottom_layout.addWidget(led_group)
         
         # Información del microscopio
         info_group = QGroupBox("Información")
@@ -81,16 +79,22 @@ class CalibrationScreen(QWidget):
         self.resolution_label = QLabel("Resolución: --")
         self.timestamp_label = QLabel("Última captura: --")
         self.temperature_label = QLabel("Temperatura: --°C")
+        self.humidity_label = QLabel("Humedad: --%")
         
         info_layout.addWidget(self.resolution_label)
         info_layout.addWidget(self.timestamp_label)
         info_layout.addWidget(self.temperature_label)
+        info_layout.addWidget(self.humidity_label)
+        
+        # Botón de histograma (ahora en la sección de información)
+        self.histogram_button = QPushButton("Generar Histograma")
+        self.histogram_button.clicked.connect(self.generate_histogram)
+        info_layout.addWidget(self.histogram_button)
         
         info_group.setLayout(info_layout)
-        right_column.addWidget(info_group)
+        bottom_layout.addWidget(info_group)
         
-        main_layout.addLayout(right_column)
-        self.layout.addLayout(main_layout)
+        self.layout.addLayout(bottom_layout)
         
         # Botón de regreso
         self.back_button = QPushButton("Volver a Microscopios")
@@ -103,7 +107,6 @@ class CalibrationScreen(QWidget):
         self.current_microscope = microscope_id
         self.microscope_id_label.setText(f"Microscopio: {microscope_id}")
         
-        # Cargar configuración actual (sin led_color)
         config = self.parent.api_client.get_microscope_config(microscope_id)
         if config:
             self.intensity_slider.setValue(config.get('led_intensity', 50))
@@ -111,6 +114,7 @@ class CalibrationScreen(QWidget):
             
             self.resolution_label.setText(f"Resolución: {config.get('resolution', '--')}")
             self.temperature_label.setText(f"Temperatura: {config.get('temperature', '--')}°C")
+            self.humidity_label.setText(f"Humedad: {config.get('humidity', '--')}%")
     
     def toggle_led(self):
         if not self.current_microscope:
@@ -140,35 +144,33 @@ class CalibrationScreen(QWidget):
         if not self.current_microscope:
             return
             
-        # Obtener imagen actual del microscopio
         image_data = self.parent.api_client.capture_image(self.current_microscope)
         if not image_data:
             return
             
-        # Convertir a numpy array (simulado)
-        # En implementación real usaría la imagen real convertida a escala de grises
         img_array = np.random.randint(0, 256, (100, 100), dtype=np.uint8)
         
-        # Generar histograma simplificado (escala de grises)
+        # Crear ventana emergente para el histograma
+        histogram_window = HistogramWindow(self)
+        
         plt.figure(figsize=(6, 4))
         plt.hist(img_array.ravel(), bins=256, range=(0, 256), color='gray')
-        
         plt.title('Histograma de Intensidad')
         plt.xlabel('Nivel de intensidad')
         plt.ylabel('Frecuencia')
         plt.grid(True)
         
-        # Guardar en buffer
         buf = BytesIO()
         plt.savefig(buf, format='png')
         plt.close()
         buf.seek(0)
         
-        # Mostrar en QLabel
         pixmap = QPixmap()
         pixmap.loadFromData(buf.getvalue())
-        self.histogram_label.setPixmap(pixmap.scaled(
-            self.histogram_label.width(),
-            self.histogram_label.height(),
+        histogram_window.histogram_label.setPixmap(pixmap.scaled(
+            histogram_window.histogram_label.width(),
+            histogram_window.histogram_label.height(),
             Qt.AspectRatioMode.KeepAspectRatio
         ))
+        
+        histogram_window.exec()
